@@ -227,6 +227,9 @@ export default function TTUOTracker() {
   const updateTicket = (id, patch) =>
     setData((d) => ({ ...d, tickets: d.tickets.map((t) => (t.id === id ? { ...t, ...patch } : t)) }));
 
+  const updateProject = (id, patch) =>
+    setData((d) => ({ ...d, projects: d.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
+
   const addComment = (ticketId, comment) =>
     setData((d) => ({
       ...d,
@@ -330,6 +333,7 @@ export default function TTUOTracker() {
         <ProjectStatusBoard
           data={data}
           onEditTicket={(t) => setTicketModal({ mode: "edit", ticket: t })}
+          onMoveProject={(id, status) => updateProject(id, { boardStatus: status })}
         />
       )}
 
@@ -520,7 +524,9 @@ const projectOverallStatus = (tickets) => {
   return "inprogress";
 };
 
-function ProjectStatusBoard({ data, onEditTicket }) {
+function ProjectStatusBoard({ data, onEditTicket, onMoveProject }) {
+  const [dragProjectId, setDragProjectId] = useState(null);
+  const [dragProjectCell, setDragProjectCell] = useState(null);
   const open = data.tickets.filter((t) => t.status !== "closed");
   const blockedCount = open.filter((t) => t.blocked).length;
 
@@ -555,12 +561,28 @@ function ProjectStatusBoard({ data, onEditTicket }) {
             {PROJECT_STATUS_COLUMNS.map((col) => {
               const projectsHere = data.projects.filter((p) => {
                 const ts = data.tickets.filter((t) => t.projectId === p.id);
-                return projectOverallStatus(ts) === col.id;
+                return (p.boardStatus || projectOverallStatus(ts)) === col.id;
               });
               return (
-                <div key={col.id} style={S.laneCell}>
+                <div
+                  key={col.id}
+                  style={{ ...S.laneCell, ...(dragProjectCell === col.id ? S.cellDragOver : {}) }}
+                  onDragOver={(e) => { e.preventDefault(); setDragProjectCell(col.id); }}
+                  onDragLeave={() => setDragProjectCell(null)}
+                  onDrop={() => {
+                    if (dragProjectId != null) onMoveProject(dragProjectId, col.id);
+                    setDragProjectId(null);
+                    setDragProjectCell(null);
+                  }}
+                >
                   {projectsHere.map((p) => (
-                    <div key={p.id} style={{ ...S.projectChip, background: p.color }}>
+                    <div
+                      key={p.id}
+                      style={{ ...S.projectChip, background: p.color, opacity: dragProjectId === p.id ? 0.4 : 1, cursor: "grab" }}
+                      draggable
+                      onDragStart={() => setDragProjectId(p.id)}
+                      onDragEnd={() => { setDragProjectId(null); setDragProjectCell(null); }}
+                    >
                       {p.name}
                     </div>
                   ))}
