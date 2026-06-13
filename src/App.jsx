@@ -292,6 +292,10 @@ export default function TTUOTracker() {
             className={view.page === "projects" || view.page === "board" ? "tab tab-active" : "tab"}
             onClick={() => setView({ page: "projects", projectId: null })}
           >Projects</button>
+          <button
+            className={view.page === "workload" ? "tab tab-active" : "tab"}
+            onClick={() => setView({ page: "workload", projectId: null })}
+          >Workload</button>
         </nav>
         <div style={S.headerRight}>
           <span style={S.saveBadge}>
@@ -328,6 +332,10 @@ export default function TTUOTracker() {
           data={data}
           onEditTicket={(t) => setTicketModal({ mode: "edit", ticket: t })}
         />
+      )}
+
+      {view.page === "workload" && (
+        <WorkloadBoard data={data} />
       )}
 
       {view.page === "projects" && (
@@ -582,6 +590,68 @@ function ProjectStatusBoard({ data, onEditTicket }) {
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- WORKLOAD (per-developer ticket & story point totals) ----------
+function WorkloadBoard({ data }) {
+  const sumPoints = (tickets) =>
+    tickets.reduce((sum, t) => sum + (Number(t.points) || 0), 0);
+
+  const rows = data.team.map((member) => {
+    const ts = data.tickets.filter((t) => t.assignee === member);
+    const completed = ts.filter((t) => t.status === "closed");
+    return {
+      member,
+      total: ts.length,
+      completed: completed.length,
+      points: sumPoints(ts),
+      completedPoints: sumPoints(completed),
+    };
+  });
+
+  return (
+    <div>
+      <div style={S.homeTopRow}>
+        <h2 style={S.pageTitle}>Workload</h2>
+      </div>
+
+      {data.team.length === 0 && (
+        <div style={S.emptyHome}>No team members yet. Add members on the Team Board.</div>
+      )}
+
+      {data.team.length > 0 && (
+        <div style={S.laneWrap}>
+          <table style={S.statsTable}>
+            <thead>
+              <tr>
+                <th style={S.statsTh}>Member</th>
+                <th style={S.statsTh}>Tickets</th>
+                <th style={S.statsTh}>Completed</th>
+                <th style={S.statsTh}>Story points</th>
+                <th style={S.statsTh}>Completed points</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.member}>
+                  <td style={S.statsTd}>
+                    <span style={{ ...S.avatar, width: 26, height: 26, fontSize: 10.5, marginRight: 8, verticalAlign: "middle" }}>
+                      {r.member.slice(0, 2).toUpperCase()}
+                    </span>
+                    {r.member}
+                  </td>
+                  <td style={S.statsTd}>{r.total}</td>
+                  <td style={S.statsTd}>{r.completed}</td>
+                  <td style={S.statsTd}>{r.points}</td>
+                  <td style={S.statsTd}>{r.completedPoints}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
@@ -1202,6 +1272,14 @@ const S = {
     gap: 7, minHeight: 64, transition: "background .15s",
   },
   cellDragOver: { background: "var(--c-drag)", outline: `2px dashed ${SCARLET}55`, outlineOffset: -2 },
+
+  // workload table
+  statsTable: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
+  statsTh: {
+    textAlign: "left", padding: "10px 14px", fontSize: 11.5, fontWeight: 700, textTransform: "uppercase",
+    letterSpacing: "0.07em", color: "var(--c-text-3)", background: "var(--c-surface-2)", borderBottom: "1px solid var(--c-border-2)",
+  },
+  statsTd: { padding: "10px 14px", borderBottom: "1px solid var(--c-border-2)" },
 
   // projects
   projectGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 16 },
