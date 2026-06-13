@@ -19,20 +19,20 @@ db.exec(`
 const app = express();
 app.use(express.json({ limit: "25mb" }));
 
-app.get("/api/kv/:key", (req, res) => {
+app.get(["/api/kv/:key", "/trackerboard/api/kv/:key"], (req, res) => {
   const row = db.prepare("SELECT value FROM kv WHERE key = ?").get(req.params.key);
   if (!row) return res.status(404).json({ error: "not found" });
   res.json({ value: row.value });
 });
 
-app.put("/api/kv/:key", (req, res) => {
+app.put(["/api/kv/:key", "/trackerboard/api/kv/:key"], (req, res) => {
   const { value } = req.body;
   db.prepare("INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
     .run(req.params.key, value);
   res.json({ ok: true });
 });
 
-app.delete("/api/kv/:key", (req, res) => {
+app.delete(["/api/kv/:key", "/trackerboard/api/kv/:key"], (req, res) => {
   db.prepare("DELETE FROM kv WHERE key = ?").run(req.params.key);
   res.json({ ok: true });
 });
