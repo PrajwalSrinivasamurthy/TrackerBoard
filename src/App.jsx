@@ -94,18 +94,11 @@ const compressImage = (file) =>
   });
 
 const SEED = {
-  team: DEFAULT_TEAM,
-  projects: [
-    { id: 1, key: "DATAX", name: "Salesforce → DataX Migration", description: "Migration of Salesforce data and workflows to K16 DataX.", color: "#3B6FB5", nextTicket: 3, created: Date.now() },
-    { id: 2, key: "BOT", name: "TTU Online ChatBot", description: "RAG chatbot production rollout and stakeholder approval.", color: SCARLET, nextTicket: 2, created: Date.now() },
-  ],
-  tickets: [
-    { id: 1, projectId: 1, key: "DATAX-1", title: "Example: field mapping review with Anna", description: "", type: "task", priority: "high", assignee: "Prajwal", status: "inprogress", due: "", labels: [], blocked: false, blockReason: "", comments: [], created: Date.now() },
-    { id: 2, projectId: 1, key: "DATAX-2", title: "Example: validate O+ dashboard numbers post-migration", description: "", type: "story", priority: "medium", assignee: "Hamza", status: "todo", due: "", labels: [], blocked: false, blockReason: "", comments: [], created: Date.now() },
-    { id: 3, projectId: 2, key: "BOT-1", title: "Example: prep demo flow for IT approval meeting", description: "", type: "task", priority: "highest", assignee: "Prajwal", status: "testing", due: "", labels: [], blocked: true, blockReason: "Waiting on IT to whitelist the demo URL", comments: [], created: Date.now() },
-  ],
-  nextProjectId: 3,
-  nextTicketId: 4,
+  team: [],
+  projects: [],
+  tickets: [],
+  nextProjectId: 1,
+  nextTicketId: 1,
 };
 
 // ---------- main ----------
