@@ -322,7 +322,6 @@ export default function TTUOTracker() {
           data={data}
           onEditTicket={(t) => setTicketModal({ mode: "edit", ticket: t })}
           onMove={(id, status, assignee) => updateTicket(id, { status, assignee })}
-          onAddMember={addTeamMember}
           onRemoveMember={removeTeamMember}
         />
       )}
@@ -335,7 +334,7 @@ export default function TTUOTracker() {
       )}
 
       {view.page === "workload" && (
-        <WorkloadBoard data={data} />
+        <WorkloadBoard data={data} onAddMember={addTeamMember} />
       )}
 
       {view.page === "projects" && (
@@ -399,10 +398,9 @@ export default function TTUOTracker() {
 }
 
 // ---------- TEAM BOARD (main page: swimlanes per member) ----------
-function TeamBoard({ data, onEditTicket, onMove, onAddMember, onRemoveMember }) {
+function TeamBoard({ data, onEditTicket, onMove, onRemoveMember }) {
   const [dragId, setDragId] = useState(null);
   const [dragCell, setDragCell] = useState(null); // "member|status"
-  const [newMember, setNewMember] = useState("");
   const open = data.tickets.filter((t) => t.status !== "closed");
   const blockedCount = open.filter((t) => t.blocked).length;
 
@@ -416,12 +414,6 @@ function TeamBoard({ data, onEditTicket, onMove, onAddMember, onRemoveMember }) 
     if (dragId != null) onMove(dragId, status, member === "Unassigned" ? "" : member);
     setDragId(null);
     setDragCell(null);
-  };
-
-  const submitNewMember = () => {
-    if (!newMember.trim()) return;
-    onAddMember(newMember);
-    setNewMember("");
   };
 
   const removeMember = (member) => {
@@ -439,17 +431,6 @@ function TeamBoard({ data, onEditTicket, onMove, onAddMember, onRemoveMember }) 
           {blockedCount > 0 && <span style={{ color: SCARLET, fontWeight: 700 }}>🚩 {blockedCount} blocked</span>}
           <span style={{ color: "var(--c-text-muted)" }}>Tip: drag a card into another row to reassign it</span>
         </div>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-        <input
-          style={{ ...S.search, maxWidth: 220 }}
-          placeholder="New team member name…"
-          value={newMember}
-          onChange={(e) => setNewMember(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submitNewMember()}
-        />
-        <button className="btn-ghost" onClick={submitNewMember}>+ Add member</button>
       </div>
 
       <div style={S.laneWrap}>
@@ -529,6 +510,16 @@ const projectStatusBucket = (t) => {
   return "inprogress"; // inprogress, testing, prodpush
 };
 
+const projectOverallStatus = (tickets) => {
+  if (tickets.length === 0) return "todo";
+  const buckets = tickets.map(projectStatusBucket);
+  if (buckets.some((b) => b === "blocked")) return "blocked";
+  if (buckets.every((b) => b === "completed")) return "completed";
+  if (buckets.some((b) => b === "inreview")) return "inreview";
+  if (buckets.every((b) => b === "todo")) return "todo";
+  return "inprogress";
+};
+
 function ProjectStatusBoard({ data, onEditTicket }) {
   const open = data.tickets.filter((t) => t.status !== "closed");
   const blockedCount = open.filter((t) => t.blocked).length;
@@ -555,6 +546,31 @@ function ProjectStatusBoard({ data, onEditTicket }) {
               <div key={c.id} style={S.laneColHeader}>{c.label}</div>
             ))}
           </div>
+
+          {/* projects as a whole, placed by overall status */}
+          <div style={S.laneGrid}>
+            <div style={S.laneMemberCell}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>All Projects</div>
+            </div>
+            {PROJECT_STATUS_COLUMNS.map((col) => {
+              const projectsHere = data.projects.filter((p) => {
+                const ts = data.tickets.filter((t) => t.projectId === p.id);
+                return projectOverallStatus(ts) === col.id;
+              });
+              return (
+                <div key={col.id} style={S.laneCell}>
+                  {projectsHere.map((p) => (
+                    <div key={p.id} style={{ ...S.projectChip, background: p.color }}>
+                      {p.name}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* divider between project-level overview and per-project ticket rows */}
+          <div style={S.laneDivider} />
 
           {data.projects.map((p) => {
             const ts = data.tickets.filter((t) => t.projectId === p.id);
@@ -597,21 +613,34 @@ function ProjectStatusBoard({ data, onEditTicket }) {
 }
 
 // ---------- WORKLOAD (per-developer ticket & story point totals) ----------
-function WorkloadBoard({ data }) {
+function WorkloadBoard({ data, onAddMember }) {
+  const [newMember, setNewMember] = useState("");
+
   const sumPoints = (tickets) =>
     tickets.reduce((sum, t) => sum + (Number(t.points) || 0), 0);
 
   const rows = data.team.map((member) => {
     const ts = data.tickets.filter((t) => t.assignee === member);
+    const inprogress = ts.filter((t) => t.status !== "todo" && t.status !== "closed");
     const completed = ts.filter((t) => t.status === "closed");
     return {
       member,
       total: ts.length,
+      totalPoints: sumPoints(ts),
+      inprogress: inprogress.length,
+      inprogressPoints: sumPoints(inprogress),
       completed: completed.length,
-      points: sumPoints(ts),
       completedPoints: sumPoints(completed),
     };
   });
+
+  rows.sort((a, b) => b.completed - a.completed || b.completedPoints - a.completedPoints || b.total - a.total);
+
+  const submitNewMember = () => {
+    if (!newMember.trim()) return;
+    onAddMember(newMember);
+    setNewMember("");
+  };
 
   return (
     <div>
@@ -619,8 +648,19 @@ function WorkloadBoard({ data }) {
         <h2 style={S.pageTitle}>Workload</h2>
       </div>
 
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+        <input
+          style={{ ...S.search, maxWidth: 220 }}
+          placeholder="New team member name…"
+          value={newMember}
+          onChange={(e) => setNewMember(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submitNewMember()}
+        />
+        <button className="btn-ghost" onClick={submitNewMember}>+ Add member</button>
+      </div>
+
       {data.team.length === 0 && (
-        <div style={S.emptyHome}>No team members yet. Add members on the Team Board.</div>
+        <div style={S.emptyHome}>No team members yet. Add one above.</div>
       )}
 
       {data.team.length > 0 && (
@@ -630,9 +670,8 @@ function WorkloadBoard({ data }) {
               <tr>
                 <th style={S.statsTh}>Member</th>
                 <th style={S.statsTh}>Tickets</th>
+                <th style={S.statsTh}>In Progress</th>
                 <th style={S.statsTh}>Completed</th>
-                <th style={S.statsTh}>Story points</th>
-                <th style={S.statsTh}>Completed points</th>
               </tr>
             </thead>
             <tbody>
@@ -644,10 +683,9 @@ function WorkloadBoard({ data }) {
                     </span>
                     {r.member}
                   </td>
-                  <td style={S.statsTd}>{r.total}</td>
-                  <td style={S.statsTd}>{r.completed}</td>
-                  <td style={S.statsTd}>{r.points}</td>
-                  <td style={S.statsTd}>{r.completedPoints}</td>
+                  <td style={S.statsTd}>{r.total} ({r.totalPoints})</td>
+                  <td style={S.statsTd}>{r.inprogress} ({r.inprogressPoints})</td>
+                  <td style={S.statsTd}>{r.completed} ({r.completedPoints})</td>
                 </tr>
               ))}
             </tbody>
@@ -1272,6 +1310,11 @@ const S = {
     gap: 7, minHeight: 64, transition: "background .15s",
   },
   cellDragOver: { background: "var(--c-drag)", outline: `2px dashed ${SCARLET}55`, outlineOffset: -2 },
+  laneDivider: { gridColumn: "1 / -1", borderBottom: "2px solid var(--c-border)" },
+  projectChip: {
+    fontSize: 12, fontWeight: 700, color: "#fff", borderRadius: 8,
+    padding: "6px 10px", lineHeight: 1.3,
+  },
 
   // workload table
   statsTable: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
