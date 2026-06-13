@@ -1,0 +1,11 @@
+services:
+  trackerboard:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - trackerboard-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  trackerboard-data:

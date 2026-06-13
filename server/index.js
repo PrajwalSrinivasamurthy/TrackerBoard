@@ -1,10 +1,13 @@
 import express from "express";
 import path from "node:path";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const db = new Database(path.join(__dirname, "data.sqlite"));
+const dataDir = process.env.DATA_DIR || __dirname;
+fs.mkdirSync(dataDir, { recursive: true });
+const db = new Database(path.join(dataDir, "data.sqlite"));
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS kv (
@@ -34,5 +37,12 @@ app.delete("/api/kv/:key", (req, res) => {
   res.json({ ok: true });
 });
 
+// serve the built frontend (npm run build in the project root) in production
+const distDir = path.join(__dirname, "..", "dist");
+app.use(express.static(distDir));
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(distDir, "index.html"));
+});
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`TTUO storage server listening on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`TTUO server listening on http://localhost:${PORT}`));
