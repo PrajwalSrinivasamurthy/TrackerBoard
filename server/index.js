@@ -40,7 +40,10 @@ app.delete("/api/kv/:key", (req, res) => {
 // serve the built frontend (npm run build in the project root) in production
 const distDir = path.join(__dirname, "..", "dist");
 app.use('/trackerboard', express.static(distDir));
-app.get(/^(?!\/api).*/, (req, res) => {
+app.get('/trackerboard', (req, res) => {
+  res.sendFile(path.join(distDir, "index.html"));
+});
+app.get('/trackerboard/*', (req, res) => {
   res.sendFile(path.join(distDir, "index.html"));
 });
 
